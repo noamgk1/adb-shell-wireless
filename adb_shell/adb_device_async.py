@@ -262,9 +262,13 @@ class _AdbIOManagerAsync(object):
             await self._send(msg, adb_info)
 
             # 3. Read the response from the device
-            cmd, arg0, maxdata, banner2 = await self._read_expected_packet_from_device([constants.AUTH, constants.CNXN], adb_info)
+            cmd, arg0, maxdata, banner2 = await self._read_expected_packet_from_device([constants.AUTH, constants.CNXN, constants.STLS], adb_info)
 
-            # 4. If ``cmd`` is not ``b'AUTH'``, then authentication is not necesary and so we are done
+            # 4. If ``cmd`` is ``b'STLS'``, then the device is using Android 11+ wireless debugging
+            if cmd == constants.STLS:
+                return await self._connect_tls(adb_info)
+
+            # 5. If ``cmd`` is not ``b'AUTH'``, then authentication is not necesary and so we are done
             if cmd != constants.AUTH:
                 return True, maxdata
 
@@ -306,6 +310,45 @@ class _AdbIOManagerAsync(object):
             adb_info.transport_timeout_s = auth_timeout_s
             _, _, maxdata, _ = await self._read_expected_packet_from_device([constants.CNXN], adb_info)
             return True, maxdata
+
+    async def _connect_tls(self, adb_info):
+        """Complete the ``b'STLS'`` handshake used by Android 11+ wireless debugging.
+
+        1. Acknowledge the device's ``b'STLS'`` message with one of our own
+        2. Upgrade the transport to TLS, presenting the ADB key as a client certificate
+        3. Read the ``b'CNXN'`` message that the device sends once the handshake completes
+
+        On this path there is no token signing: the TLS client certificate *is* the
+        authentication, so ``rsa_keys`` is not used.  The certificate must wrap the key
+        that the device was paired with (see :mod:`adb_shell.tls`).
+
+        Parameters
+        ----------
+        adb_info : _AdbTransactionInfo
+            Info and settings for this connection attempt
+
+        Returns
+        -------
+        bool
+            Whether the connection was established
+        int
+            The device's maxdata value
+
+        """
+        # 1. Acknowledge the device's request to switch to TLS
+        await self._send(AdbMessage(constants.STLS, constants.STLS_VERSION, 0), adb_info)
+
+        # 2. Upgrade the transport to TLS
+        await self._transport.upgrade_to_tls(adb_info.transport_timeout_s)
+
+        # 3. The device volunteers its ``b'CNXN'`` message once the handshake is complete.
+        #
+        #    Do *not* send another ``b'CNXN'`` here.  The device answers it with a second,
+        #    spurious ``b'STLS'`` message which desynchronizes the stream; the next
+        #    ``b'OPEN'`` then appears to return ``b'STLS'`` and the session hangs.
+        _, _, maxdata, _ = await self._read_expected_packet_from_device([constants.CNXN], adb_info)
+
+        return True, maxdata
 
     async def read(self, expected_cmds, adb_info, allow_zeros=False):
         """Read packets from the device until we get an expected packet type.
@@ -1524,6 +1567,10 @@ class AdbDeviceTcpAsync(AdbDeviceAsync):
     banner : str, bytes, None
         The hostname of the machine where the Python interpreter is currently running; if
         it is not provided, it will be determined via ``socket.gethostname()``
+    tls_key_path : str, None
+        Path to the ADB key that the device was paired with, used as the TLS client
+        certificate for Android 11+ wireless debugging; defaults to
+        :const:`adb_shell.tls.DEFAULT_ADBKEY_PATH` (``~/.android/adbkey``)
 
     Attributes
     ----------
@@ -1542,6 +1589,6 @@ class AdbDeviceTcpAsync(AdbDeviceAsync):
 
     """
 
-    def __init__(self, host, port=5555, default_transport_timeout_s=None, banner=None):
-        transport = TcpTransportAsync(host, port)
+    def __init__(self, host, port=5555, default_transport_timeout_s=None, banner=None, tls_key_path=None):
+        transport = TcpTransportAsync(host, port, tls_key_path)
         super(AdbDeviceTcpAsync, self).__init__(transport, default_transport_timeout_s, banner)

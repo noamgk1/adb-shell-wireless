@@ -74,3 +74,21 @@ class BaseTransportAsync(ABC):
             The number of bytes sent
 
         """
+
+    async def upgrade_to_tls(self, transport_timeout_s):
+        """Upgrade the established connection to TLS, as required by Android 11+ wireless debugging.
+
+        Transports that cannot be upgraded (e.g., USB) leave this unimplemented.
+
+        Parameters
+        ----------
+        transport_timeout_s : float, None
+            A timeout for the TLS handshake
+
+        Raises
+        ------
+        NotImplementedError
+            This transport does not support TLS
+
+        """
+        raise NotImplementedError('{} does not support TLS (Android 11+ wireless debugging)'.format(type(self).__name__))

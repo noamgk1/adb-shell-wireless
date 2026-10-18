@@ -2,7 +2,7 @@
 *.idea
 *.pyc
 **/__pycache__/
-adb_shell.egg-info
+*.egg-info/
 
 # Build files
 build/
@@ -15,3 +15,6 @@ docs/html/
 # Coverage
 .coverage
 htmlcov/
+
+# Local design notes (not published)
+docs/superpowers/

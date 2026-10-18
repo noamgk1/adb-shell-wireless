@@ -41,6 +41,12 @@ class AdbTimeoutError(Exception):
     """
 
 
+class AdbTlsError(Exception):
+    """Failed to establish the TLS connection required by Android 11+ wireless debugging.
+
+    """
+
+
 class DeviceAuthError(Exception):
     """Device authentication failed.
 

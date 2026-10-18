@@ -61,12 +61,17 @@ AUTH_SIGNATURE = 2
 #: AUTH constant for ``arg0``
 AUTH_RSAPUBLICKEY = 3
 
+#: The ``arg0`` value used in ``b'STLS'`` messages; from ``adb.h`` (``A_STLS_VERSION``).
+#: This is the version of the STLS handshake, *not* the ADB protocol version.
+STLS_VERSION = 0x01000000
+
 AUTH = b'AUTH'
 CLSE = b'CLSE'
 CNXN = b'CNXN'
 FAIL = b'FAIL'
 OKAY = b'OKAY'
 OPEN = b'OPEN'
+STLS = b'STLS'
 SYNC = b'SYNC'
 WRTE = b'WRTE'
 
@@ -80,7 +85,7 @@ SEND = b'SEND'
 STAT = b'STAT'
 
 #: Commands that are recognized by :meth:`adb_shell.adb_device._AdbIOManager._read_packet_from_device` and :meth:`adb_shell.adb_device_async._AdbIOManagerAsync._read_packet_from_device`
-IDS = (AUTH, CLSE, CNXN, OKAY, OPEN, SYNC, WRTE)
+IDS = (AUTH, CLSE, CNXN, OKAY, OPEN, STLS, SYNC, WRTE)
 
 #: A dictionary where the keys are the commands in :const:`IDS` and the values are the keys converted to integers
 ID_TO_WIRE = {cmd_id: sum(c << (i * 8) for i, c in enumerate(bytearray(cmd_id))) for cmd_id in IDS}
